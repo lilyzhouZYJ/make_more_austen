@@ -1,21 +1,38 @@
-# Austen Word-Level Bigram Model
+# Write like Jane Austen!
 
-A word-level bigram language model trained on Jane Austen's novels, implemented in PyTorch. This project is inspired by [Andrej Karpathy's nn-zero-to-hero series](https://github.com/karpathy/nn-zero-to-hero/blob/master/lectures/makemore/makemore_part1_bigrams.ipynb), but adapted to work at the word level instead of character level.
+This project implements a multi-model text generation system trained on Jane Austen's works. It is inspired by [Andrej Karpathy's makemore library](https://github.com/karpathy/makemore/tree/master), but while makemore is a character-level framework, this project extends it to work at the word-level.
 
 ## Features
 
-- **Word-level tokenization**: Processes text at the word level for more meaningful language modeling
-- **Bigram probability matrix**: Uses PyTorch tensors for efficient probability calculations
-- **Text generation**: Generate Austen-style text with configurable temperature for creativity control
-- **Visualization**: Create heatmaps of bigram probabilities
+- **Multiple supported models:** choose any of the supported models for your text generation.
+- **Word-level tokenization:** processes text at the word level.
+- **Extensible architecture:** easy to add new model types.
+- **Memory management:** configurable training data size limits.
+- **Text generation:** generate Austen'style text with configurable temperature for creativity control.
+- **Visualization:** generate heatmaps of bigram probabilities and word embeddings.
 - **Interactive predictions**: Get the most likely words to follow any given word
+
+## Supported Model Types
+
+**Probabilistic bigram model:**
+- bigram model that uses count-based probabilities to generate predictions
+- fast training and inference, memory efficient
+- good baseline for comparison
+
+**Neural-network bigram model:**
+- uses word embeddings and neural network
+- more expressive than count-based bigram model
+- configurable architecture (embedding dimension, learning rate, epochs)
 
 ## Files
 
-- `bigram.py`: Main implementation with command-line interface
+- `main.py`: Main entry point with command-line interface
+- `models/`: Directory containing model implementations
+  - `base_model.py`: Abstract base class for all models
+  - `probabilistic_bigram.py`: Count-based bigram model
+  - `neural_bigram.py`: Neural network bigram model
 - `austen.txt`: The Jane Austen text dataset
 - `requirements.txt`: Python dependencies
-- `test_model.py`: Test suite to verify correctness
 
 ## Installation
 
@@ -28,71 +45,110 @@ pip install -r requirements.txt
 
 ### Command-Line Interface
 
-The model now supports a comprehensive command-line interface:
+The system supports a comprehensive command-line interface with multiple model options:
 
 ```bash
-# Basic usage - generate 5 sentences with default settings
-python bigram.py
+# Basic usage - generate 5 sentences with probabilistic model (default)
+python main.py
 
-# Generate 3 sentences with more conservative (lower temperature) text
-python bigram.py --temperature 0.8 --sentences 3
+# Use neural network model with default settings
+python main.py --model neural
 
-# Generate creative text with longer sentences
-python bigram.py --temperature 1.5 --max-words 25 --sentences 2
+# Neural model with custom parameters
+python main.py --model neural --embedding-dim 128 --learning-rate 0.05 --epochs 200
 
-# Show model statistics
-python bigram.py --stats
+# Limit training data to save memory
+python main.py --max-training-data-size 50000
 
-# Show model loss and perplexity
-python bigram.py --loss
+# Generate creative text with higher temperature
+python main.py --model neural --temperature 1.5 --sentences 3
 
-# Generate heatmap visualization
-python bigram.py --heatmap
+# Show model statistics and loss
+python main.py --stats --loss
+
+# Generate heatmap visualization (probabilistic model only)
+python main.py --model probabilistic --heatmap
+
+# Visualize word embeddings (neural model only)
+python main.py --model neural --embeddings
 
 # Show word predictions for a specific word
-python bigram.py --predictions-for-word catherine
+python main.py --predictions-for-word catherine
 
 # Combine multiple options
-python bigram.py --temperature 1.2 --sentences 4 --max-words 18 --stats --loss --predictions-for-word elizabeth
+python main.py --model neural --temperature 1.2 --sentences 4 --max-words 18 --stats --loss --predictions-for-word elizabeth
 ```
 
 ### Available Command-Line Arguments
 
+#### Model Selection
+- `--model {probabilistic,neural}`: Type of model to use (default: probabilistic)
+- `--data-file FILE`: Path to training data file (default: austen.txt)
+
+#### Data Management
+- `--max-training-data-size SIZE`: Maximum number of words to use for training (default: all data)
+
+#### Neural Network Parameters (neural model only)
+- `--embedding-dim DIM`: Embedding dimension (default: 64)
+- `--learning-rate RATE`: Learning rate (default: 0.1)
+- `--epochs EPOCHS`: Number of training epochs (default: 100)
+
+#### Text Generation
 - `--temperature TEMPERATURE`: Temperature for text generation (default: 1.0)
 - `--sentences SENTENCES`: Number of sentences to generate (default: 5)
 - `--max-words MAX_WORDS`: Maximum words per sentence (default: 20)
+- `--start-word START_WORD`: Starting word for generation (default: <START>)
+
+#### Analysis
 - `--stats`: Show model statistics
 - `--loss`: Show model loss and perplexity
-- `--heatmap`: Generate and save bigram heatmap
 - `--predictions-for-word WORD`: Show top 5 words that follow the specified word
-- `--start-word START_WORD`: Starting word for generation (default: <START>)
-- `--heatmap-words HEATMAP_WORDS`: Number of words to show in heatmap (default: 15)
+
+#### Visualization
+- `--heatmap`: Generate and save bigram heatmap (probabilistic model only)
+- `--embeddings`: Visualize word embeddings (neural model only)
+- `--heatmap-words WORDS`: Number of words to show in visualizations (default: 15)
 
 ### Programmatic Usage
 
-You can also use the model programmatically:
+You can also use the models programmatically:
 
 ```python
-from bigram import WordBigram
+from models.probabilistic_bigram import ProbabilisticBigramModel
+from models.neural_bigram import NeuralBigramModel
 
-# Initialize and train the model
-model = WordBigram()
-model.train('austen.txt')
+# Probabilistic model
+prob_model = ProbabilisticBigramModel()
+prob_model.train('austen.txt', max_training_data_size=50000)
+
+# Neural network model
+neural_model = NeuralBigramModel(embedding_dim=128, learning_rate=0.05, num_epochs=200)
+neural_model.train('austen.txt', max_training_data_size=50000)
 
 # Generate text
-text = model.generate_text(max_length=20, start_word='she', temperature=1.2)
+text = neural_model.generate_text(max_length=20, start_word='she', temperature=1.2)
 print(text)
 
 # Get word predictions
-predictions = model.get_most_likely_words('catherine', top_k=5)
+predictions = neural_model.get_most_likely_words('catherine', top_k=5)
 
 # Generate multiple sentences
-sentences = model.generate_sentences(num_sentences=3, max_words_per_sentence=15, temperature=0.8)
+sentences = neural_model.generate_sentences(num_sentences=3, max_words_per_sentence=15, temperature=0.8)
+
+# Get model statistics
+stats = neural_model.get_model_stats()
+print(f"Vocabulary size: {stats['vocabulary_size']}")
+
+# Calculate loss
+loss_info = neural_model.calculate_loss()
+print(f"Perplexity: {loss_info['perplexity']:.2f}")
 ```
 
-## Model Architecture
+## Model Architectures
 
-The model uses a simple bigram approach:
+### Probabilistic Bigram Model
+
+The probabilistic model uses a count-based approach:
 
 1. **Text Preprocessing**: Converts text to lowercase, splits into sentences, and tokenizes words
 2. **Vocabulary Building**: Creates a mapping between words and integer indices
@@ -100,12 +156,16 @@ The model uses a simple bigram approach:
 4. **Probability Matrix**: Creates a V×V matrix where V is vocabulary size, with each entry representing the probability of one word following another
 5. **Text Generation**: Samples words based on the learned probabilities
 
-## Key Differences from Character-Level Model
+### Neural Network Bigram Model
 
-- **Tokenization**: Uses words instead of characters as the basic unit
-- **Vocabulary Size**: Much larger vocabulary (17,493 words vs. ~27 characters)
-- **Context**: Each prediction considers only the previous word (bigram model)
-- **Output Quality**: Generated text is more coherent at the word level but may lack longer-term structure
+The neural model uses learnable embeddings:
+
+1. **Text Preprocessing**: Same as probabilistic model
+2. **Vocabulary Building**: Same as probabilistic model
+3. **Embedding Layer**: Each word is represented as a dense vector (embedding)
+4. **Linear Layer**: Maps embeddings to next-word probabilities
+5. **Training**: Uses gradient descent to learn optimal embeddings and weights
+6. **Text Generation**: Uses trained neural network to predict next words
 
 ## Model Statistics
 
@@ -151,11 +211,17 @@ Perplexity: 63.62
 
 ## Example Output
 
+### Probabilistic Model
 ```
 Generated text: "she must be sure you mean to think to which"
 
 Word predictions for 'catherine':
 Top 5 words after 'catherine': s (0.140), was (0.080), and (0.058), <END> (0.046), had (0.042)
+```
+
+### Neural Network Model
+```
+Generated text: "she had been very much pleased with her own"
 
 Word predictions for 'elizabeth':
 Top 5 words after 'elizabeth': was (0.082), <END> (0.064), and (0.061), s (0.060), had (0.060)
@@ -163,13 +229,23 @@ Top 5 words after 'elizabeth': was (0.082), <END> (0.064), and (0.061), s (0.060
 
 ## Visualization
 
-The model can generate a heatmap showing the probability relationships between the most common words:
+### Probabilistic Model
+The probabilistic model can generate a heatmap showing the probability relationships between the most common words:
 
-```python
-model.visualize_bigram_heatmap(words_to_show=20)
+```bash
+python main.py --model probabilistic --heatmap
 ```
 
 This creates a visualization saved as `bigram_heatmap.png`.
+
+### Neural Network Model
+The neural model can visualize word embeddings using t-SNE:
+
+```bash
+python main.py --model neural --embeddings
+```
+
+This creates a visualization saved as `neural_bigram_embeddings.png`.
 
 ## References
 
