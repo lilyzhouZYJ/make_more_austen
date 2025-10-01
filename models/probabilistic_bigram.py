@@ -5,7 +5,6 @@ import re
 from collections import defaultdict, Counter
 from typing import List, Dict, Tuple, Optional
 
-
 class ProbabilisticBigramModel:
     """
     Probabilistic bigram language model.

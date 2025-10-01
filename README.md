@@ -28,7 +28,6 @@ This project implements a multi-model text generation system trained on Jane Aus
 
 - `main.py`: Main entry point with command-line interface
 - `models/`: Directory containing model implementations
-  - `base_model.py`: Abstract base class for all models
   - `probabilistic_bigram.py`: Count-based bigram model
   - `neural_bigram.py`: Neural network bigram model
 - `austen.txt`: The Jane Austen text dataset
@@ -48,41 +47,41 @@ pip install -r requirements.txt
 The system supports a comprehensive command-line interface with multiple model options:
 
 ```bash
-# Basic usage - generate 5 sentences with probabilistic model (default)
-python main.py
+# Basic usage - generate 5 sentences with probabilistic model
+python main.py --model bigram-probabilistic
 
 # Use neural network model with default settings
-python main.py --model neural
+python main.py --model bigram-neural
 
 # Neural model with custom parameters
-python main.py --model neural --embedding-dim 128 --learning-rate 0.05 --epochs 200
+python main.py --model bigram-neural --embedding-dim 128 --learning-rate 0.05 --epochs 200
 
 # Limit training data to save memory
-python main.py --max-training-data-size 50000
+python main.py --model bigram-probabilistic --max-training-data-size 50000
 
 # Generate creative text with higher temperature
-python main.py --model neural --temperature 1.5 --sentences 3
+python main.py --model bigram-neural --temperature 1.5 --sentences 3
 
 # Show model statistics and loss
-python main.py --stats --loss
+python main.py --model bigram-probabilistic --stats --loss
 
 # Generate heatmap visualization (probabilistic model only)
-python main.py --model probabilistic --heatmap
+python main.py --model bigram-probabilistic --heatmap
 
 # Visualize word embeddings (neural model only)
-python main.py --model neural --embeddings
+python main.py --model bigram-neural --embeddings
 
 # Show word predictions for a specific word
-python main.py --predictions-for-word catherine
+python main.py --model bigram-probabilistic --predictions-for-word catherine
 
 # Combine multiple options
-python main.py --model neural --temperature 1.2 --sentences 4 --max-words 18 --stats --loss --predictions-for-word elizabeth
+python main.py --model bigram-neural --temperature 1.2 --sentences 4 --max-words 18 --stats --loss --predictions-for-word elizabeth
 ```
 
 ### Available Command-Line Arguments
 
 #### Model Selection
-- `--model {probabilistic,neural}`: Type of model to use (default: probabilistic)
+- `--model {bigram-probabilistic,bigram-neural}`: Type of model to use (required)
 - `--data-file FILE`: Path to training data file (default: austen.txt)
 
 #### Data Management
@@ -184,10 +183,10 @@ Temperature controls the creativity and randomness of text generation:
 
 ```bash
 # Conservative generation
-python bigram.py --temperature 0.8
+python main.py --model bigram-probabilistic --temperature 0.8
 
 # Creative generation  
-python bigram.py --temperature 1.5
+python main.py --model bigram-neural --temperature 1.5
 ```
 
 ## Model Loss
@@ -199,7 +198,7 @@ The model calculates its performance using negative log-likelihood loss:
 
 ```bash
 # Show model loss
-python bigram.py --loss
+python main.py --model bigram-probabilistic --loss
 ```
 
 Example output:

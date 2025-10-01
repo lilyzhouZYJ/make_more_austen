@@ -1,36 +1,24 @@
 #!/usr/bin/env python3
-"""
-Main entry point for the Austen text generation project.
-
-This script provides a command-line interface for training and using different
-language models to generate Austen-style text.
-"""
-
 import argparse
 import sys
 from typing import Optional
 
 from models.probabilistic_bigram import ProbabilisticBigramModel
 from models.neural_bigram import NeuralBigramModel
-
+from supported_models import MODEL_BIGRAM_PROBABILISTIC, MODEL_BIGRAM_NEURAL, SUPPORTED_MODELS
 
 def get_model(model_type: str, **kwargs):
     """
-    Factory function to create model instances.
-    
+    Create model.
+
     Args:
-        model_type: Type of model to create ('probabilistic' or 'neural')
-        **kwargs: Additional arguments for model initialization
-        
-    Returns:
-        Model instance
-        
-    Raises:
-        ValueError: If model_type is not recognized
+        model_type: Type of model to create.
+            [supported types: 'bigram-probabilistic', 'bigram-neural']
+        **kwargs: Additional arguments for model initialization.
     """
-    if model_type == 'probabilistic':
+    if model_type == MODEL_BIGRAM_PROBABILISTIC:
         return ProbabilisticBigramModel()
-    elif model_type == 'neural':
+    elif model_type == MODEL_BIGRAM_NEURAL:
         embedding_dim = kwargs.get('embedding_dim', 64)
         learning_rate = kwargs.get('learning_rate', 0.1)
         num_epochs = kwargs.get('num_epochs', 100)
@@ -40,39 +28,37 @@ def get_model(model_type: str, **kwargs):
             num_epochs=num_epochs
         )
     else:
-        raise ValueError(f"Unknown model type: {model_type}. Available types: 'probabilistic', 'neural'")
-
+        raise ValueError(f"Unknown model type: {model_type}. Supported types: {SUPPORTED_MODELS}")
 
 def main():
-    """Main entry point for the application."""
     parser = argparse.ArgumentParser(
         description='Austen Text Generation with Multiple Language Models',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Generate text with probabilistic bigram model (default)
-  python main.py
+  # Generate text with probabilistic bigram model
+  python main.py --model bigram-probabilistic
   
   # Use neural network model with custom parameters
-  python main.py --model neural --embedding-dim 128 --learning-rate 0.05 --epochs 200
+  python main.py --model bigram-neural --embedding-dim 128 --learning-rate 0.05 --epochs 200
   
   # Limit training data to save memory
-  python main.py --max-training-data-size 50000
+  python main.py --model bigram-probabilistic --max-training-data-size 50000
   
   # Generate creative text with higher temperature
-  python main.py --model neural --temperature 1.5 --sentences 3
+  python main.py --model bigram-neural --temperature 1.5 --sentences 3
   
   # Show model statistics and loss
-  python main.py --stats --loss
+  python main.py --model bigram-probabilistic --stats --loss
         """
     )
     
     # Model selection arguments
-    parser.add_argument('--model', type=str, default='probabilistic',
-                       choices=['probabilistic', 'neural'],
-                       help='Type of model to use (default: probabilistic)')
+    parser.add_argument('--model', type=str, choices=SUPPORTED_MODELS,
+                       required=True,
+                       help='Type of model to use (required)')
     
-    # Data arguments
+    # Training data arguments
     parser.add_argument('--data-file', type=str, default='austen.txt',
                        help='Path to training data file (default: austen.txt)')
     parser.add_argument('--max-training-data-size', type=int, default=None,
@@ -180,15 +166,16 @@ Examples:
                 print("Note: Make sure the word is lowercase and exists in the Austen text.")
         
         # Generate visualizations
-        if args.heatmap and args.model == 'probabilistic':
-            print("\n=== Creating Bigram Heatmap ===")
-            try:
-                model.visualize_bigram_heatmap(words_to_show=args.heatmap_words)
-                print(f"Heatmap saved as 'bigram_heatmap.png'")
-            except Exception as e:
-                print(f"Could not create heatmap: {e}")
-        elif args.heatmap and args.model == 'neural':
-            print("Heatmap visualization is only available for probabilistic model.")
+        if args.heatmap:
+            if args.model == MODEL_BIGRAM_PROBABILISTIC:
+                print("\n=== Creating Bigram Heatmap ===")
+                try:
+                    model.visualize_bigram_heatmap(words_to_show=args.heatmap_words)
+                    print(f"Heatmap saved as 'bigram_heatmap.png'")
+                except Exception as e:
+                    print(f"Could not create heatmap: {e}")
+            else:
+                print("Heatmap visualization is only available for bigram-probabilistic model.")
         
         print("\n=== Generation Complete ===")
         print(f"Generated {args.sentences} sentences with {args.model} model (temperature {args.temperature})")
@@ -205,7 +192,6 @@ Examples:
     except Exception as e:
         print(f"Unexpected error: {e}")
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
