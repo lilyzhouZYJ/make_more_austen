@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 import argparse
 import sys
-from typing import Optional
 
 from models.probabilistic_bigram import ProbabilisticBigramModel
 from models.neural_bigram import NeuralBigramModel
-from supported_models import MODEL_BIGRAM_PROBABILISTIC, MODEL_BIGRAM_NEURAL, SUPPORTED_MODELS
+from models.mlp import MLPModel
+from supported_models import MODEL_BIGRAM_PROBABILISTIC, MODEL_BIGRAM_NEURAL, MODEL_MLP, SUPPORTED_MODELS
 
 def get_model(model_type: str, **kwargs):
     """
@@ -13,7 +13,6 @@ def get_model(model_type: str, **kwargs):
 
     Args:
         model_type: Type of model to create.
-            [supported types: 'bigram-probabilistic', 'bigram-neural']
         **kwargs: Additional arguments for model initialization.
     """
     if model_type == MODEL_BIGRAM_PROBABILISTIC:
@@ -26,6 +25,21 @@ def get_model(model_type: str, **kwargs):
             embedding_dim=embedding_dim,
             learning_rate=learning_rate,
             num_epochs=num_epochs
+        )
+    elif model_type == MODEL_MLP:
+        block_size = kwargs.get('block_size', 3)
+        embedding_dim = kwargs.get('embedding_dim', 64)
+        hidden_dim = kwargs.get('hidden_dim', 128)
+        learning_rate = kwargs.get('learning_rate', 0.1)
+        num_epochs = kwargs.get('num_epochs', 100)
+        mini_batch_size = kwargs.get('mini_batch_size', None)
+        return MLPModel(
+            block_size=block_size,
+            embedding_dim=embedding_dim,
+            hidden_dim=hidden_dim,
+            learning_rate=learning_rate,
+            num_epochs=num_epochs,
+            mini_batch_size=mini_batch_size
         )
     else:
         raise ValueError(f"Unknown model type: {model_type}. Supported types: {SUPPORTED_MODELS}")
@@ -41,6 +55,12 @@ Examples:
   
   # Use neural network model with custom parameters
   python main.py --model bigram-neural --embedding-dim 128 --learning-rate 0.05 --epochs 200
+  
+  # Use MLP model with custom parameters
+  python main.py --model mlp --block-size 4 --hidden-dim 256 --embedding-dim 128
+  
+  # Use MLP model with mini-batch training
+  python main.py --model mlp --mini-batch-size 32 --epochs 50
   
   # Limit training data to save memory
   python main.py --model bigram-probabilistic --max-training-data-size 50000
@@ -64,13 +84,19 @@ Examples:
     parser.add_argument('--max-training-data-size', type=int, default=None,
                        help='Maximum number of words to use for training (default: all data)')
     
-    # Neural network specific arguments
+    # Training arguments
     parser.add_argument('--embedding-dim', type=int, default=64,
                        help='Embedding dimension for neural model (default: 64)')
     parser.add_argument('--learning-rate', type=float, default=0.1,
                        help='Learning rate for neural model (default: 0.1)')
     parser.add_argument('--epochs', type=int, default=100,
                        help='Number of training epochs for neural model (default: 100)')
+    parser.add_argument('--mini-batch-size', type=int, default=None,
+                       help='Mini-batch size for training (default: None)')
+    parser.add_argument('--block-size', type=int, default=3,
+                       help='Block size (context length) for MLP model (default: 3)')
+    parser.add_argument('--hidden-dim', type=int, default=128,
+                       help='Hidden dimension for MLP model (default: 128)')
     
     # Text generation arguments
     parser.add_argument('--temperature', type=float, default=1.0,
@@ -88,7 +114,7 @@ Examples:
     parser.add_argument('--loss', action='store_true',
                        help='Show model loss and perplexity')
     parser.add_argument('--predictions-for-word', type=str, metavar='WORD',
-                       help='Show top 5 words that follow the specified word')
+                       help='Show top 5 words that follow the specified word/context')
     
     # Visualization arguments
     parser.add_argument('--heatmap', action='store_true',
@@ -111,7 +137,10 @@ Examples:
         model_kwargs = {
             'embedding_dim': args.embedding_dim,
             'learning_rate': args.learning_rate,
-            'num_epochs': args.epochs
+            'num_epochs': args.epochs,
+            'mini_batch_size': args.mini_batch_size,
+            'block_size': args.block_size,
+            'hidden_dim': args.hidden_dim
         }
         
         model = get_model(args.model, **model_kwargs)
@@ -134,6 +163,14 @@ Examples:
                 print(f"Embedding dimension: {stats['embedding_dimension']}")
                 print(f"Learning rate: {stats['learning_rate']}")
                 print(f"Training epochs: {stats['training_epochs']}")
+            
+            if 'block_size' in stats:
+                print(f"Block size: {stats['block_size']}")
+                print(f"Hidden dimension: {stats['hidden_dimension']}")
+                if 'mini_batch_size' in stats and stats['mini_batch_size'] is not None:
+                    print(f"Mini-batch size: {stats['mini_batch_size']}")
+                else:
+                    print("Mini-batch size: Full batch")
         
         # Show loss if requested
         if args.loss:
@@ -156,14 +193,26 @@ Examples:
         # Show word predictions if requested
         if args.predictions_for_word:
             word = args.predictions_for_word.lower()
-            print(f"\n=== Word Predictions for '{word}' ===")
-            if word in model.word_to_idx:
+            print(f"\n=== Predictions for '{word}' ===")
+            
+            # Handle different model types
+            if hasattr(model, 'word_to_idx') and word in model.word_to_idx:
+                # Word-based models (bigram models)
+                predictions = model.get_most_likely_words(word, top_k=5)
+                pred_words = [f"{pred[0]} ({pred[1]:.3f})" for pred in predictions]
+                print(f"Top 5 words after '{word}': {', '.join(pred_words)}")
+            elif hasattr(model, 'word_to_idx') and len(word.split()) == model.block_size:
+                # Word-based MLP model
                 predictions = model.get_most_likely_words(word, top_k=5)
                 pred_words = [f"{pred[0]} ({pred[1]:.3f})" for pred in predictions]
                 print(f"Top 5 words after '{word}': {', '.join(pred_words)}")
             else:
-                print(f"Word '{word}' not found in vocabulary.")
-                print("Note: Make sure the word is lowercase and exists in the Austen text.")
+                if hasattr(model, 'word_to_idx') and hasattr(model, 'block_size'):
+                    print(f"Context '{word}' not found or wrong length.")
+                    print(f"Note: MLP model requires exactly {model.block_size} words as context.")
+                else:
+                    print(f"Word '{word}' not found in vocabulary.")
+                    print("Note: Make sure the word is lowercase and exists in the Austen text.")
         
         # Generate visualizations
         if args.heatmap:

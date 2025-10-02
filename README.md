@@ -24,12 +24,19 @@ This project implements a multi-model text generation system trained on Jane Aus
 - more expressive than count-based bigram model
 - configurable architecture (embedding dimension, learning rate, epochs)
 
+**MLP (Multi-Layer Perceptron) model:**
+- word-level language model that uses multiple words as context
+- more sophisticated than bigram models by considering longer sequences
+- supports mini-batch training for better memory efficiency and faster convergence
+- configurable context length (block size), hidden dimensions, and training parameters
+
 ## Files
 
 - `main.py`: Main entry point with command-line interface
 - `models/`: Directory containing model implementations
   - `probabilistic_bigram.py`: Count-based bigram model
   - `neural_bigram.py`: Neural network bigram model
+  - `mlp.py`: Multi-layer perceptron model
 - `austen.txt`: The Jane Austen text dataset
 - `requirements.txt`: Python dependencies
 
@@ -53,8 +60,17 @@ python main.py --model bigram-probabilistic
 # Use neural network model with default settings
 python main.py --model bigram-neural
 
+# Use MLP model with default settings
+python main.py --model mlp
+
 # Neural model with custom parameters
 python main.py --model bigram-neural --embedding-dim 128 --learning-rate 0.05 --epochs 200
+
+# MLP model with custom parameters
+python main.py --model mlp --block-size 4 --hidden-dim 256 --embedding-dim 128
+
+# MLP model with mini-batch training
+python main.py --model mlp --mini-batch-size 32 --epochs 50
 
 # Limit training data to save memory
 python main.py --model bigram-probabilistic --max-training-data-size 50000
@@ -74,6 +90,9 @@ python main.py --model bigram-neural --embeddings
 # Show word predictions for a specific word
 python main.py --model bigram-probabilistic --predictions-for-word catherine
 
+# Show context predictions for MLP model (requires block_size words)
+python main.py --model mlp --predictions-for-word "and the book"
+
 # Combine multiple options
 python main.py --model bigram-neural --temperature 1.2 --sentences 4 --max-words 18 --stats --loss --predictions-for-word elizabeth
 ```
@@ -81,16 +100,21 @@ python main.py --model bigram-neural --temperature 1.2 --sentences 4 --max-words
 ### Available Command-Line Arguments
 
 #### Model Selection
-- `--model {bigram-probabilistic,bigram-neural}`: Type of model to use (required)
+- `--model {bigram-probabilistic,bigram-neural,mlp}`: Type of model to use (required)
 - `--data-file FILE`: Path to training data file (default: austen.txt)
 
 #### Data Management
 - `--max-training-data-size SIZE`: Maximum number of words to use for training (default: all data)
 
-#### Neural Network Parameters (neural model only)
+#### Training Parameters (neural and MLP models)
 - `--embedding-dim DIM`: Embedding dimension (default: 64)
 - `--learning-rate RATE`: Learning rate (default: 0.1)
 - `--epochs EPOCHS`: Number of training epochs (default: 100)
+
+#### MLP Model Parameters (MLP model only)
+- `--block-size SIZE`: Context length (number of words to use as input) (default: 3)
+- `--hidden-dim DIM`: Hidden layer dimension (default: 128)
+- `--mini-batch-size SIZE`: Mini-batch size for training (default: None, uses full batch)
 
 #### Text Generation
 - `--temperature TEMPERATURE`: Temperature for text generation (default: 1.0)
@@ -115,6 +139,7 @@ You can also use the models programmatically:
 ```python
 from models.probabilistic_bigram import ProbabilisticBigramModel
 from models.neural_bigram import NeuralBigramModel
+from models.mlp import MLPModel
 
 # Probabilistic model
 prob_model = ProbabilisticBigramModel()
@@ -124,12 +149,23 @@ prob_model.train('austen.txt', max_training_data_size=50000)
 neural_model = NeuralBigramModel(embedding_dim=128, learning_rate=0.05, num_epochs=200)
 neural_model.train('austen.txt', max_training_data_size=50000)
 
+# MLP model
+mlp_model = MLPModel(block_size=4, hidden_dim=256, embedding_dim=128, mini_batch_size=64)
+mlp_model.train('austen.txt', max_training_data_size=50000)
+
 # Generate text
 text = neural_model.generate_text(max_length=20, start_word='she', temperature=1.2)
 print(text)
 
+# Generate text with MLP model (using context)
+mlp_text = mlp_model.generate_text(max_length=20, sentence_start='she was', temperature=1.2)
+print(mlp_text)
+
 # Get word predictions
 predictions = neural_model.get_most_likely_words('catherine', top_k=5)
+
+# Get context predictions for MLP model
+mlp_predictions = mlp_model.get_most_likely_words('and the', top_k=5)
 
 # Generate multiple sentences
 sentences = neural_model.generate_sentences(num_sentences=3, max_words_per_sentence=15, temperature=0.8)
@@ -165,6 +201,19 @@ The neural model uses learnable embeddings:
 4. **Linear Layer**: Maps embeddings to next-word probabilities
 5. **Training**: Uses gradient descent to learn optimal embeddings and weights
 6. **Text Generation**: Uses trained neural network to predict next words
+
+### MLP Model
+
+The MLP model is a more sophisticated word-level language model:
+
+1. **Text Preprocessing**: Same as other models, with special handling for context padding
+2. **Vocabulary Building**: Same as other models
+3. **Context Window**: Uses a configurable number of previous words (block_size) as context
+4. **Embedding Layer**: Each word in the context is embedded into dense vectors
+5. **Hidden Layer**: Concatenated embeddings pass through a hidden layer with tanh activation
+6. **Output Layer**: Maps hidden representation to vocabulary probabilities
+7. **Mini-batch Training**: Supports both full-batch and mini-batch training for efficiency
+8. **Text Generation**: Uses sliding window approach to generate text with longer context awareness
 
 ## Model Statistics
 
@@ -226,6 +275,14 @@ Word predictions for 'elizabeth':
 Top 5 words after 'elizabeth': was (0.082), <END> (0.064), and (0.061), s (0.060), had (0.060)
 ```
 
+### MLP Model
+```
+Generated text: "he had a considerable independence besides two good livings"
+
+Context predictions for 'and the book':
+Top 5 words after 'and the book': her (0.968), ladies (0.024), many (0.006), about (0.001), room (0.000)
+```
+
 ## Visualization
 
 ### Probabilistic Model
@@ -249,4 +306,5 @@ This creates a visualization saved as `neural_bigram_embeddings.png`.
 ## References
 
 - [Neural Networks: Zero to Hero - Makemore Part 1: Bigrams](https://github.com/karpathy/nn-zero-to-hero/blob/master/lectures/makemore/makemore_part1_bigrams.ipynb)
+- [Neural Networks: Zero to Hero - Makemore Part 2: MLP](https://github.com/karpathy/nn-zero-to-hero/blob/master/lectures/makemore/makemore_part2_mlp.ipynb)
 - Jane Austen dataset was downloaded from kaggle, [Jane Austen and Charles Dickens](https://www.kaggle.com/datasets/joshmcadams/jane-austin-and-charles-dickens/data)
